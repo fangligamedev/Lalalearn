@@ -1,0 +1,7 @@
+{
+  "name": "Copy of PySparky: Magic Python Academy（party Version）",
+  "description": "A gamified, vibe-coding Python learning adventure for kids, featuring an AI companion named Sparky.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
