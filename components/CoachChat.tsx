@@ -183,7 +183,7 @@ const CoachChat: React.FC<CoachChatProps> = ({
                 ${isUser ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'}
                 ${isLatest && !isUser ? 'border-indigo-500/50 shadow-lg shadow-indigo-900/20' : ''}
               `}>
-                {msg.text}
+                <div className="whitespace-pre-line break-words">{msg.text}</div>
               </div>
             </div>
           );
