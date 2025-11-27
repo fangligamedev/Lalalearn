@@ -49,15 +49,29 @@ const App: React.FC = () => {
   });
 
   const [selectedCourseId, setSelectedCourseId] = useState<string>(initialCourses[0]?.id || '');
-  const [conceptProgressMap, setConceptProgressMap] = useState<Record<string, { currentLevel: number; levelStars: Record<number, number>; }>>({});
+  const [conceptProgressMap, setConceptProgressMap] = useState<Record<string, { currentLevel: number; levelStars: Record<number, number>; }>>(() => {
+    try {
+      const saved = localStorage.getItem('concept_progress_map');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
   useEffect(() => {
-    // 确保初始课程都有进度
-    const map: typeof conceptProgressMap = {};
+    // 确保初始课程都有进度（不覆盖已有存档）
+    const map: typeof conceptProgressMap = { ...conceptProgressMap };
     initialCourses.forEach(c => {
-      map[c.id] = { currentLevel: 1, levelStars: {} };
+      if (!map[c.id]) {
+        map[c.id] = { currentLevel: 1, levelStars: {} };
+      }
     });
     setConceptProgressMap(map);
   }, [initialCourses]);
+  // 持久化每个课程的进度
+  useEffect(() => {
+    try {
+      localStorage.setItem('concept_progress_map', JSON.stringify(conceptProgressMap));
+    } catch {}
+  }, [conceptProgressMap]);
   const [currentConceptLevel, setCurrentConceptLevel] = useState<ConceptLevel | null>(null);
 
   const [activeLevelId, setActiveLevelId] = useState<number | null>(null);
@@ -123,12 +137,9 @@ const App: React.FC = () => {
     [conceptHistory, currentCourse?.id]
   );
   const totalTimeYesterdayMs = React.useMemo(() => {
-    const now = Date.now();
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const startOfYesterday = startOfToday.getTime() - 24 * 60 * 60 * 1000;
+    // 改为统计当前课程的累计学习时长（不限日期）
     return conceptHistory
-      .filter(h => (!h.courseId || h.courseId === currentCourse?.id) && (h.answeredAt || 0) >= startOfYesterday && (h.answeredAt || 0) < startOfToday.getTime())
+      .filter(h => !h.courseId || h.courseId === currentCourse?.id)
       .reduce((acc, cur) => acc + (cur.durationMs || 0), 0);
   }, [conceptHistory, currentCourse?.id]);
   const goToNextConceptLevel = () => {
@@ -370,23 +381,8 @@ const App: React.FC = () => {
     setConceptIsCorrect(null);
     setConceptAttempts(0);
     setConceptStartTime(Date.now());
-
-    const course = courses.find(c => c.id === courseId);
-    if (course && course.type === 'concept') {
-      const progress = conceptProgressMap[courseId] || { currentLevel: 1, levelStars: {} };
-      const levels = course.levels as ConceptLevel[];
-      const target = levels.find(l => l.id === progress.currentLevel) || levels[0];
-      if (target) {
-        setCurrentConceptLevel(target);
-        setActiveLevelId(target.id);
-        const firstQuestionText = target.questions?.[0]?.type === 'fill_blank'
-          ? (target.questions[0] as any).question
-          : (target.questions?.[0] as any)?.question || (target.questions?.[0] as any)?.statement || target.title;
-        setMessages([{ role: MessageRole.MODEL, text: firstQuestionText }]);
-      }
-    } else {
-      setCurrentConceptLevel(null);
-    }
+    // 不自动进入第一题，回到大厅
+    setCurrentConceptLevel(null);
   };
 
   const handleTutorialNext = () => {
@@ -619,7 +615,7 @@ const App: React.FC = () => {
     const refreshed = configService.getCourses();
     setCourses(refreshed);
     setSelectedCourseId(course.id);
-    setConceptProgressMap(prev => ({ ...prev, [course.id]: { currentLevel: 1, levelStars: {} } }));
+    setConceptProgressMap(prev => ({ ...prev, [course.id]: prev[course.id] || { currentLevel: 1, levelStars: {} } }));
     setShowCourseCreator(false);
   };
 
